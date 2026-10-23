@@ -3046,7 +3046,7 @@ function createChildReport(
             conciergeChat,
             delegateAccountID,
         });
-    } else {
+    } else if (!parentReportAction.childType || parentReportAction.childType === CONST.REPORT.TYPE.CHAT) {
         Onyx.merge(`${ONYXKEYS.COLLECTION.REPORT}${childReportID}`, newChat);
     }
 
