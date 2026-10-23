@@ -7401,6 +7401,47 @@ describe('actions/Report', () => {
             expect(Navigation.navigate).toHaveBeenCalledWith(ROUTES.REPORT_WITH_ID.getRoute(EXISTING_CHILD_REPORT.reportID));
         });
 
+        describe('when the parent action already has a child report that is not loaded', () => {
+            const openUnloadedChild = async (childType: string | undefined) => {
+                const PARENT_REPORT = createRandomReport(1, undefined);
+                const PARENT_REPORT_ACTION: OnyxTypes.ReportAction = {
+                    ...createRandomReportAction(REPORT_ACTION_ID),
+                    reportActionID: '1',
+                    actorAccountID: TEST_USER_ACCOUNT_ID,
+                    childReportID: CHILD_REPORT_ID,
+                    childType,
+                };
+
+                await TestHelper.signInWithTestUser(TEST_USER_ACCOUNT_ID, TEST_USER_LOGIN);
+                Onyx.set(`${ONYXKEYS.COLLECTION.REPORT}${PARENT_REPORT_ID}`, PARENT_REPORT);
+                await waitForBatchedUpdates();
+
+                Report.navigateToAndOpenChildReport(undefined, PARENT_REPORT_ACTION, PARENT_REPORT, TEST_USER_ACCOUNT_ID, INTRO_SELECTED, undefined, undefined, undefined);
+                await waitForBatchedUpdates();
+            };
+
+            it.each([CONST.REPORT.TYPE.SUPPORT_TICKET, CONST.REPORT.TYPE.TASK, CONST.REPORT.TYPE.EXPENSE])(
+                'does not seed a chat report under the existing child ID when childType is %s',
+                async (childType) => {
+                    // When the thread row of a typed child preview is pressed and the child report is not in Onyx
+                    await openUnloadedChild(childType);
+
+                    // Then the existing report is opened by its ID and no placeholder chat is written for it
+                    expect(Navigation.navigate).toHaveBeenCalledWith(ROUTES.REPORT_WITH_ID.getRoute(CHILD_REPORT_ID));
+                    expect(await getOnyxValue(`${ONYXKEYS.COLLECTION.REPORT}${CHILD_REPORT_ID}`)).toBeUndefined();
+                },
+            );
+
+            it.each([CONST.REPORT.TYPE.CHAT, undefined, ''])('still seeds the optimistic chat under the existing child ID when childType is %s', async (childType) => {
+                // When the thread row of a regular chat thread is pressed and the child report is not in Onyx
+                await openUnloadedChild(childType);
+
+                // Then the optimistic chat is written under the child ID, as before
+                expect(Navigation.navigate).toHaveBeenCalledWith(ROUTES.REPORT_WITH_ID.getRoute(CHILD_REPORT_ID));
+                expect((await getOnyxValue(`${ONYXKEYS.COLLECTION.REPORT}${CHILD_REPORT_ID}`))?.type).toBe(CONST.REPORT.TYPE.CHAT);
+            });
+        });
+
         it('should open a money-request child report in the expense report wide RHP scrolled to the latest message', async () => {
             const PARENT_REPORT = createRandomReport(1, undefined);
             const EXISTING_CHILD_REPORT: OnyxTypes.Report = {...createRandomReport(2, undefined), type: CONST.REPORT.TYPE.EXPENSE};
